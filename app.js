@@ -1,5 +1,5 @@
 const CONFIG = {
-  API_URL: "PASTE_YOUR_APPS_SCRIPT_WEBAPP_URL_HERE"
+  API_URL: "https://script.google.com/macros/s/AKfycbxA6ltWBWRcyNGJM6QDFiV9-U6p3siplNDHdwj2eX-ZUvh_fVowDpxi6yHqmcSmXB5s/exec"
 };
 
 function app(){
