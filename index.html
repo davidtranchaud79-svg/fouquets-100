@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fouques’t Suite v11.6 – Gold Motion</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#5A0D0D">
+  <link rel="stylesheet" href="style.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="lang.js"></script>
+  <script defer src="chef_ai.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body x-data="app()" x-init="init()">
+  <header class="header">
+    <div class="brand">
+      <div class="logo">FS</div>
+      <div>
+        <h1>Fouques’t Suite <span class="tag">v11.6</span></h1>
+        <p>Gold Motion Polyglotte Edition</p>
+      </div>
+    </div>
+    <div class="status">
+      <select class="lang-switch" x-model="lang" @change="saveLang">
+        <option value="fr">🇫🇷 FR</option>
+        <option value="en">🇬🇧 EN</option>
+        <option value="it">🇮🇹 IT</option>
+        <option value="es">🇪🇸 ES</option>
+      </select>
+      <span :class="online ? 'badge-online' : 'badge-offline'" x-text="t(online ? 'online' : 'offline')"></span>
+      <button class="btn" @click="installPWA" x-show="deferredPrompt" x-text="t('install')"></button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="grid kpis">
+      <div class="card">
+        <div class="kpi-title" x-text="t('losses')"></div>
+        <div class="kpi-value" x-text="formatCurrency(pertesMois)"></div>
+        <div class="kpi-sub"><span x-text="t('weight')"></span> : <span x-text="poidsPertes.toFixed(1) + ' kg'"></span></div>
+      </div>
+      <div class="card">
+        <div class="kpi-title" x-text="t('stock')"></div>
+        <div class="kpi-value" x-text="formatCurrency(valeurStock)"></div>
+        <div class="kpi-sub"><span x-text="t('active_products')"></span> : <span x-text="nbProduits"></span></div>
+      </div>
+      <div class="card">
+        <div class="kpi-title" x-text="t('recipes')"></div>
+        <div class="kpi-value" x-text="nbRecettes"></div>
+        <div class="kpi-sub"><span x-text="t('last_production')"></span> : <span x-text="derniereProduction"></span></div>
+      </div>
+      <div class="card">
+        <div class="kpi-title" x-text="t('assistant')"></div>
+        <div class="kpi-value">
+          <button class="btn" @click="toggleVoice()" x-text="voiceListening ? t('stop') : t('speak')"></button>
+        </div>
+        <div class="kpi-sub" x-text="lastVoice"></div>
+      </div>
+    </section>
+
+    <section class="grid actions">
+      <div class="card">
+        <h2 x-text="t('record_loss')"></h2>
+        <div class="form">
+          <input class="input" :placeholder="t('product')" x-model="loss.produit">
+          <div class="row">
+            <input class="input" type="number" step="0.01" :placeholder="t('quantity')" x-model.number="loss.qte">
+            <input class="input" :placeholder="t('unit_hint')" x-model="loss.unite">
+          </div>
+          <div class="row">
+            <input class="input" type="number" step="0.01" :placeholder="t('unit_price')" x-model.number="loss.prix_u">
+            <input class="input" :placeholder="t('reason')" x-model="loss.motif">
+          </div>
+          <input class="input" :placeholder="t('zone_hint')" x-model="loss.zone">
+          <button class="btn primary" @click="submitLoss" x-text="t('save')"></button>
+          <div class="hint" x-text="lossMsg"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 x-text="t('inv_daily_active')"></h2>
+        <div class="form">
+          <input class="input" :placeholder="t('zone_hint')" x-model="inv.zone">
+          <div class="row">
+            <input class="input" :placeholder="t('product')" x-model="inv.produit">
+            <input class="input" :placeholder="t('unit')" x-model="inv.unite">
+          </div>
+          <div class="row">
+            <input class="input" type="number" step="0.01" :placeholder="t('real_qty')" x-model.number="inv.qte_reelle">
+            <select class="input" x-model="inv.type_action">
+              <option value="CONTROLE" x-text="t('control')"></option>
+              <option value="ENTREE" x-text="t('entry')"></option>
+              <option value="SORTIE" x-text="t('exit')"></option>
+              <option value="NOUVEAU_PRODUIT" x-text="t('new_product')"></option>
+            </select>
+          </div>
+          <input class="input" :placeholder="t('comment_opt')" x-model="inv.commentaire">
+          <button class="btn primary" @click="submitInvJ" x-text="t('save')"></button>
+          <div class="hint" x-text="invMsg"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 x-text="t('inv_month_zone')"></h2>
+        <div class="form">
+          <input class="input" :placeholder="t('zone_hint')" x-model="zoneMensuelle">
+          <button class="btn primary" @click="ensureMonthlyInventory" x-text="t('create_open_zone_sheet')"></button>
+          <div class="hint" x-text="invMonMsg"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 x-text="t('losses_month_detail')"></h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th x-text="t('product')"></th>
+            <th x-text="t('quantity')"></th>
+            <th x-text="t('unit')"></th>
+            <th x-text="t('value_eur')"></th>
+            <th x-text="t('last_loss')"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="p in pertesProduits" :key="p.produit">
+            <tr>
+              <td x-text="p.produit"></td>
+              <td x-text="p.qte.toFixed(2)"></td>
+              <td x-text="p.unite"></td>
+              <td x-text="p.total.toFixed(2)"></td>
+              <td x-text="(new Date(p.last)).toLocaleDateString()"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2 x-text="t('recipes')"></h2>
+      <div class="form">
+        <input class="input" :placeholder="t('search_recipe')" x-model="recipeQuery" @input="filterRecettes">
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th x-text="t('recipe_name')"></th>
+              <th x-text="t('category')"></th>
+              <th x-text="t('base_portions')"></th>
+              <th x-text="t('cost_per_portion')"></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="r in recettesFiltrees" :key="r.code">
+              <tr>
+                <td x-text="localizedName(r)"></td>
+                <td x-text="r.categorie"></td>
+                <td x-text="r.portions_base"></td>
+                <td x-text="r.cout_portion.toFixed(2)"></td>
+                <td><button class="btn" @click="openRecette(r.code)" x-text="t('open')"></button></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <template x-if="recetteActive">
+        <div class="card" style="margin-top:12px">
+          <h3 x-text="localizedName(recetteActive)"></h3>
+          <p><span x-text="t('base_portions')"></span>: <span x-text="recetteActive.portions_base"></span></p>
+          <div class="row">
+            <input class="input" type="number" step="1" min="1" x-model.number="prodPortions">
+            <button class="btn primary" @click="produireRecette(recetteActive.code, prodPortions)" x-text="t('produce')"></button>
+          </div>
+          <table class="table" style="margin-top:8px">
+            <thead><tr><th x-text="t('ingredient')"></th><th x-text="t('qty')"></th><th x-text="t('unit')"></th><th x-text="t('unit_price')"></th><th x-text="t('cost')"></th></tr></thead>
+            <tbody>
+              <template x-for="i in recetteActive.ingredients" :key="i.ingredient">
+                <tr>
+                  <td x-text="i.ingredient"></td>
+                  <td x-text="(i.qte_base * prodPortions / recetteActive.portions_base).toFixed(3)"></td>
+                  <td x-text="i.unite"></td>
+                  <td x-text="i.prix_u"></td>
+                  <td x-text="((i.qte_base * prodPortions / recetteActive.portions_base) * i.prix_u).toFixed(2)"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </template>
+    </section>
+  </main>
+
+  <footer class="footer">© 2026 Joy – Fouques’t Suite – Gold Motion</footer>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js');
+      });
+    }
+  </script>
+</body>
+</html>
